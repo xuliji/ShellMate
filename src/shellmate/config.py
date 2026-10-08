@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 from shellmate.zsh_plugin import ZSH_PLUGIN
 
@@ -134,27 +134,6 @@ class AppConfig(StrictSettings):
     search: SearchSettings = Field(default_factory=SearchSettings)
     privacy: PrivacySettings = Field(default_factory=PrivacySettings)
     thread_id: str = "shellmate-cli-default"
-
-    @model_validator(mode="before")
-    @classmethod
-    def migrate_removed_settings(cls, value: Any) -> Any:
-        """兼容已移除的 provider、输出日志和 PostgreSQL 配置。"""
-        if not isinstance(value, dict):
-            return value
-        llm = value.get("llm")
-        if isinstance(llm, dict) and "provider" in llm:
-            old_provider = llm.pop("provider")
-            if str(old_provider).lower() != "openai":
-                raise ValueError(
-                    "llm.provider 已移除；请直接配置 OpenAI 兼容接口的 llm.base_url 和 llm.model。"
-                )
-        shell = value.get("shell")
-        if isinstance(shell, dict):
-            # 旧版 output_file 用于采集终端输出；当前版本只向终端打印回答。
-            shell.pop("output_file", None)
-        # 当前版本使用本地 SQLite，旧 PostgreSQL 连接串无需保留。
-        value.pop("checkpoint", None)
-        return value
 
     @field_validator("thread_id")
     @classmethod
