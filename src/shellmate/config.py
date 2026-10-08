@@ -9,10 +9,17 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
+from shellmate.zsh_plugin import ZSH_PLUGIN
+
 CONFIG_PATH = Path("~/.config/shellmate/config.json").expanduser()
 AGENT_PROMPT_PATH = CONFIG_PATH.parent / "Agent.md"
 DATA_DIR = CONFIG_PATH.parent / "data"
 CHECKPOINT_DB_PATH = DATA_DIR / "checkpoints.sqlite"
+ZSH_PLUGIN_PATH = CONFIG_PATH.parent / "shellmate.zsh"
+ZSHRC_PATH = Path("~/.zshrc").expanduser()
+
+# 写入 ~/.zshrc 的 source 行，用于幂等判断。
+ZSHRC_SOURCE_LINE = "source ~/.config/shellmate/shellmate.zsh"
 
 DEFAULT_AGENT_PROMPT = """You are Shellmate, a concise and careful command-line troubleshooting assistant.
 
@@ -55,6 +62,28 @@ def ensure_data_dir() -> None:
     """创建本地 SQLite 数据目录，不要求用户部署数据库服务。"""
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     DATA_DIR.chmod(0o700)
+
+
+def ensure_zsh_plugin() -> bool:
+    """把 zsh 插件写入配置目录，并在 ~/.zshrc 中幂等地加入 source 行。
+
+    返回 True 表示本次新增了 source 行（需要重载 ~/.zshrc 才生效）。
+    """
+    ZSH_PLUGIN_PATH.parent.mkdir(parents=True, exist_ok=True)
+    ZSH_PLUGIN_PATH.write_text(ZSH_PLUGIN, encoding="utf-8")
+    ZSH_PLUGIN_PATH.chmod(0o644)
+    try:
+        existing = ZSHRC_PATH.read_text(encoding="utf-8")
+    except OSError:
+        existing = ""
+    if ZSHRC_SOURCE_LINE in existing:
+        return False
+    new = existing
+    if new and not new.endswith("\n"):
+        new += "\n"
+    new += f"\n# Shellmate: 加载 zsh 插件（由 shellmate init 自动添加）\n{ZSHRC_SOURCE_LINE}\n"
+    ZSHRC_PATH.write_text(new, encoding="utf-8")
+    return True
 
 
 class StrictSettings(BaseModel):

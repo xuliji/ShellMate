@@ -43,7 +43,6 @@ class LangGraphAgent:
 
     def __init__(self, config: AppConfig):
         self.config = config
-        self.system_prompt = load_system_prompt()
         ensure_data_dir()
         self.privacy = SecretRedactionMiddleware(
             config.privacy.redact_secrets,
@@ -68,18 +67,30 @@ class LangGraphAgent:
             timeout=config.llm.timeout,
         ).bind_tools(self.tools)
 
+    def _load_system_prompt(self, state: AgentState) -> dict[str, list[AnyMessage]]:
+        """系统提示词节点：读取 Agent.md 并作为首条消息加入图状态。
+
+        每个 thread 只注入一次；同一会话后续轮次的状态里已有系统提示词时跳过，
+        避免重复追加。用户编辑 Agent.md 后，新会话（新 thread）会读取最新内容。
+        """
+        if any(isinstance(message, SystemMessage) for message in state["messages"]):
+            return {}
+        return {"messages": [SystemMessage(content=load_system_prompt())]}
+
     def _call_model(self, state: AgentState) -> dict[str, list[AnyMessage]]:
         """模型节点：在请求边界脱敏，并将新消息交回图状态。"""
         safe_messages = self.privacy.before_model(state["messages"])
-        response = self.model.invoke([SystemMessage(content=self.system_prompt), *safe_messages])
+        response = self.model.invoke(safe_messages)
         return {"messages": [response]}
 
     def _build_graph(self, checkpointer: SqliteSaver):
-        """连接模型和工具节点，并注入本地 SQLite checkpoint。"""
+        """连接系统提示词、模型和工具节点，并注入本地 SQLite checkpoint。"""
         graph = StateGraph(AgentState)
+        graph.add_node("system_prompt", self._load_system_prompt)
         graph.add_node("assistant", self._call_model)
         graph.add_node("tools", ToolNode(self.tools))
-        graph.add_edge(START, "assistant")
+        graph.add_edge(START, "system_prompt")
+        graph.add_edge("system_prompt", "assistant")
         graph.add_conditional_edges("assistant", tools_condition, {"tools": "tools", END: END})
         graph.add_edge("tools", "assistant")
         return graph.compile(checkpointer=checkpointer)
@@ -90,7 +101,6 @@ class LangGraphAgent:
         if not thread_id or len(thread_id) > 128:
             raise AgentError("thread_id 必须为 1 到 128 个字符。")
         graph_config = {"configurable": {"thread_id": thread_id}}
-        print(context.as_text())
         user_content = (
             f"Shell context (recent command history):\n{context.as_text()}"
             f"\n\nQuestion: {question}"

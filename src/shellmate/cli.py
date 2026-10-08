@@ -7,7 +7,15 @@ import os
 import sys
 
 from shellmate.agent import AgentError, LangGraphAgent
-from shellmate.config import AGENT_PROMPT_PATH, CONFIG_PATH, DATA_DIR, ensure_data_dir, load_config
+from shellmate.config import (
+    AGENT_PROMPT_PATH,
+    CONFIG_PATH,
+    DATA_DIR,
+    ZSH_PLUGIN_PATH,
+    ensure_data_dir,
+    ensure_zsh_plugin,
+    load_config,
+)
 from shellmate.context import read_context, read_zsh_history
 
 
@@ -30,9 +38,15 @@ def main() -> None:
         raise SystemExit(2) from exc
     if args.command == "init":
         ensure_data_dir()
+        zshrc_updated = ensure_zsh_plugin()
         print(f"已创建或确认配置文件：{CONFIG_PATH}")
         print(f"已创建或确认 Agent 提示词：{AGENT_PROMPT_PATH}")
         print(f"已创建或确认数据目录：{DATA_DIR}")
+        print(f"已创建或确认 zsh 插件：{ZSH_PLUGIN_PATH}")
+        if zshrc_updated:
+            print("已在 ~/.zshrc 添加插件加载行，请执行 `source ~/.zshrc` 使其生效。")
+        else:
+            print("~/.zshrc 已包含插件加载行，无需修改。")
         return
     if args.command == "config-path":
         print(CONFIG_PATH)
