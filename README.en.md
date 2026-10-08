@@ -56,6 +56,8 @@ shellmate-ai history-lines                                # print history size
 
 `shellmate-ai init` creates `~/.config/shellmate/config.json` and `Agent.md`. Set your API key there or via environment variables.
 
+`Agent.md` is the system prompt and is meant to be edited: it is seeded from the packaged template `src/shellmate/prompts/Agent.md` (shipped in the wheel/sdist), written only when the file does not exist, so your edits are never overwritten. Changes apply to new sessions.
+
 ```json
 {
   "llm": { "base_url": "https://api.openai.com/v1", "model": "gpt-4o-mini", "api_key": "" },
@@ -102,6 +104,8 @@ src/shellmate/
 ├── privacy.py         # secret redaction
 ├── zsh_plugin.py      # bundled zsh plugin (loads shellmate.zsh data file)
 ├── shellmate.zsh      # zsh plugin (Ctrl-G / preexec / precmd)
+├── prompts/
+│   └── Agent.md       # default system prompt template (written by init)
 └── tools/
     └── web_search.py  # DuckDuckGo HTML search
 ```

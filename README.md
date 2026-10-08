@@ -56,6 +56,8 @@ shellmate-ai history-lines                            # 查看历史条数
 
 `shellmate-ai init` 会创建 `~/.config/shellmate/config.json` 和 `Agent.md`。在 config.json 中填入 API Key，或用环境变量设置。
 
+`Agent.md` 是系统提示词，可以直接编辑：初始内容来自包内模板 `src/shellmate/prompts/Agent.md`（随 wheel/sdist 一起下发），只在文件不存在时写入，不会覆盖你的修改；改动对新会话生效。
+
 ```json
 {
   "llm": { "base_url": "https://api.openai.com/v1", "model": "gpt-4o-mini", "api_key": "" },
@@ -102,6 +104,8 @@ src/shellmate/
 ├── privacy.py         # 脱敏中间件
 ├── zsh_plugin.py      # 内置 zsh 插件（从 shellmate.zsh 数据文件读取）
 ├── shellmate.zsh      # zsh 插件（Ctrl-G / preexec / precmd）
+├── prompts/
+│   └── Agent.md       # 默认系统提示词模板（init 时写入配置目录）
 └── tools/
     └── web_search.py  # DuckDuckGo HTML 搜索
 ```
