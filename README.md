@@ -4,19 +4,39 @@ Shellmate is an AI troubleshooting assistant for the zsh command line. The zsh i
 
 ## Project layout
 
-- `zsh/shellmate.zsh`: Ctrl-G widget and recent history collection.
-- `src/shellmate/cli.py`: command line entry point (`ask`).
-- `src/shellmate/config.py`: JSON configuration and environment overrides.
-- `src/shellmate/context.py`: shell command history context formatting.
-- `src/shellmate/agent.py`: LangGraph nodes, tool routing, and SQLite checkpointing.
-- `~/.config/shellmate/Agent.md`: editable system prompt for the agent.
-- `src/shellmate/privacy.py`: best-effort secret redaction before model/search requests.
-- `src/shellmate/tools/`: DuckDuckGo HTML search tool.
+```text
+Shellmate/
+├── pyproject.toml                   # Package metadata and dependencies
+├── MANIFEST.in                      # Includes the zsh plugin in the source distribution
+├── src/
+│   └── shellmate/
+│       ├── agent.py                 # LangGraph graph and SQLite checkpointing
+│       ├── cli.py                   # shellmate CLI and init command
+│       ├── config.py                # Pydantic configuration models and initialization
+│       ├── context.py               # Recent zsh history formatting
+│       ├── privacy.py               # Secret-redaction middleware
+│       └── tools/
+│           └── web_search.py        # DuckDuckGo HTML search tool
+└── zsh/
+    └── shellmate.zsh                # Ctrl-G widget and history collection
+
+~/.config/shellmate/
+├── config.json                      # User model and Shellmate settings
+├── Agent.md                         # Editable system prompt
+└── data/
+    └── checkpoints.sqlite           # LangGraph state, created after the first question
+```
 
 ## Install for development
 
 ```sh
 python -m pip install -e .
+```
+
+Then initialize the local configuration:
+
+```sh
+shellmate init
 ```
 
 On first run, Shellmate creates `~/.config/shellmate/config.json` and `~/.config/shellmate/Agent.md`. Edit the JSON file to add your model API key; edit `Agent.md` to customize the agent instructions:
@@ -31,7 +51,6 @@ On first run, Shellmate creates `~/.config/shellmate/config.json` and `~/.config
   "shell": {
     "history_lines": 20
   },
-  "thread_id": "shellmate-cli-default",
   "search": {
     "endpoint": "https://html.duckduckgo.com/html/"
   },
@@ -42,7 +61,7 @@ On first run, Shellmate creates `~/.config/shellmate/config.json` and `~/.config
 }
 ```
 
-All model services use one OpenAI-compatible protocol. Configure `llm.base_url`, `llm.model`, and `llm.api_key` for OpenAI, DeepSeek, Qwen, or another compatible endpoint. `OPENAI_API_KEY` and `SHELLMATE_API_KEY` can supply the API key; environment variables override JSON settings. No database service is required: `~/.config/shellmate/data/checkpoints.sqlite` stores LangGraph checkpoints. The zsh widget generates a stable `thread_id` for each shell session; direct CLI use can pass `--thread-id`, otherwise `thread_id` from JSON is used. Pydantic validates configuration before the agent starts.
+All model services use one OpenAI-compatible protocol. Configure `llm.base_url`, `llm.model`, and `llm.api_key` for OpenAI, DeepSeek, Qwen, or another compatible endpoint. `OPENAI_API_KEY` and `SHELLMATE_API_KEY` can supply the API key; environment variables override JSON settings. No database service is required: `~/.config/shellmate/data/checkpoints.sqlite` stores LangGraph checkpoints. The zsh widget generates a stable session ID for each shell session; direct CLI use can optionally pass `--thread-id`, otherwise an internal default is used. Pydantic validates configuration before the agent starts.
 
 Redaction is enabled by default. It covers common API keys, password/token assignments, Bearer tokens, AWS access keys, and PEM private-key blocks. Optional Python regular expressions can be added in `privacy.custom_patterns`; matches are replaced with `[REDACTED]`. Redaction is best-effort and cannot identify every secret format.
 
@@ -55,6 +74,8 @@ source /path/to/Shellmate/zsh/shellmate.zsh
 ```
 
 Restart zsh, then press **Ctrl-G** to ask about the session. You can also run `shellmate ask "Why did my last command fail?"`.
+
+`shellmate init` explicitly creates the configuration file, Agent prompt, and `~/.config/shellmate/data/` directory without overwriting existing files.
 
 ## Terminal output
 

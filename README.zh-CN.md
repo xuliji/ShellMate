@@ -16,14 +16,26 @@ Shellmate 是一个面向 zsh 的命令行 AI 助手。按下快捷键后，它�
 ## 项目结构
 
 ```text
-zsh/shellmate.zsh                 zsh 快捷键和历史采集
-src/shellmate/cli.py              命令行入口
-src/shellmate/context.py          命令历史上下文处理
-src/shellmate/agent.py            LangGraph 状态图、工具路由与 SQLite checkpoint
-~/.config/shellmate/Agent.md      可编辑的 Agent 系统提示词
-src/shellmate/config.py           Pydantic 配置模型与校验
-src/shellmate/privacy.py          发往模型和搜索工具前的脱敏中间件
-src/shellmate/tools/web_search.py  DuckDuckGo HTML 搜索工具
+Shellmate/
+├── pyproject.toml                   # 打包元数据和依赖
+├── MANIFEST.in                      # 将 zsh 插件纳入 source distribution
+├── src/
+│   └── shellmate/
+│       ├── agent.py                 # LangGraph 状态图和 SQLite checkpoint
+│       ├── cli.py                   # shellmate 命令行入口和 init 命令
+│       ├── config.py                # Pydantic 配置模型和初始化逻辑
+│       ├── context.py               # 近期 zsh 命令历史格式化
+│       ├── privacy.py               # 脱敏中间件
+│       └── tools/
+│           └── web_search.py        # DuckDuckGo HTML 搜索工具
+└── zsh/
+    └── shellmate.zsh                # Ctrl-G 快捷键和历史采集
+
+~/.config/shellmate/
+├── config.json                      # 用户模型和 Shellmate 配置
+├── Agent.md                         # 可编辑的 Agent 系统提示词
+└── data/
+    └── checkpoints.sqlite           # LangGraph 状态，首次提问后创建
 ```
 
 ## 安装
@@ -33,6 +45,12 @@ Shellmate 当前以源码开发安装为主。需要 Python 3.11 或更新版本
 ```sh
 cd /path/to/Shellmate
 python -m pip install -e .
+```
+
+安装后执行一次初始化：
+
+```sh
+shellmate init
 ```
 
 ## 配置
@@ -50,7 +68,6 @@ python -m pip install -e .
   "shell": {
     "history_lines": 20
   },
-  "thread_id": "shellmate-cli-default",
   "search": {
     "endpoint": "https://html.duckduckgo.com/html/"
   },
@@ -61,7 +78,7 @@ python -m pip install -e .
 }
 ```
 
-无需部署数据库服务。LangGraph checkpoint 保存在 `~/.config/shellmate/data/checkpoints.sqlite`，并使用当前 zsh 会话 ID 隔离。zsh 插件会为每个 shell 会话生成稳定的 `thread_id`；直接运行 CLI 时可传 `--thread-id`，否则使用配置中的 `thread_id`。
+无需部署数据库服务。LangGraph checkpoint 保存在 `~/.config/shellmate/data/checkpoints.sqlite`，并使用当前 zsh 会话 ID 隔离。zsh 插件会为每个 shell 会话生成稳定的会话 ID；直接运行 CLI 时可选传 `--thread-id`，未传时使用内部默认值。
 
 配置由 Pydantic 模型校验：未知字段、错误类型、无效的历史条数或超出范围的超时会在启动时报告配置错误。
 
@@ -124,6 +141,8 @@ shellmate ask --history $'ls -la\ngit status' "工作区里有哪些未提交的
 shellmate config-path
 shellmate history-lines
 ```
+
+`shellmate init` 可显式创建配置、Agent 提示词和 `~/.config/shellmate/data/` 数据目录；已有文件不会被覆盖。
 
 ## 终端输出
 

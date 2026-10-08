@@ -25,8 +25,9 @@ Use web search when current information is needed.
 def _create_default_config(path: Path) -> None:
     """首次启动时创建配置目录和一份可编辑的默认配置模板。"""
     path.parent.mkdir(parents=True, exist_ok=True)
-    default_config = AppConfig().model_dump(mode="json")
-    # JSON 中的空密钥和数据库地址需要用户按需填写，其他字段均可直接使用默认值。
+    # thread_id 由 zsh 会话或 CLI 参数提供，不暴露给普通用户配置。
+    default_config = AppConfig().model_dump(mode="json", exclude={"thread_id"})
+    # JSON 中的空密钥需要用户按需填写，其他字段均可直接使用默认值。
     rendered = json.dumps(default_config, ensure_ascii=False, indent=2) + "\n"
     try:
         # 使用独占创建，避免并发启动时覆盖用户刚写入的配置。
@@ -96,7 +97,7 @@ class PrivacySettings(StrictSettings):
 
 
 class AppConfig(StrictSettings):
-    """完整应用配置；thread_id 可由 zsh 会话 ID 在运行时覆盖。"""
+    """完整应用配置；thread_id 仅作为非 zsh 调用时的内部兜底值。"""
 
     llm: LLMSettings = Field(default_factory=LLMSettings)
     shell: ShellSettings = Field(default_factory=ShellSettings)
