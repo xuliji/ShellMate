@@ -6,6 +6,9 @@ import argparse
 import os
 import sys
 
+from rich.console import Console
+from rich.markdown import Markdown
+
 from shellmate import __version__
 from shellmate.agent import AgentError, LangGraphAgent
 from shellmate.config import (
@@ -51,25 +54,30 @@ def _ask(config, question: str, context: ShellContext, args) -> None:
 
 
 def _stream_answer(agent: LangGraphAgent, config, question: str, context: ShellContext, args) -> None:
-    """把 agent 的增量回答逐段写到标准输出。
+    """运行 agent 并把回答打印到终端。
 
-    直接 ``sys.stdout.write`` 逐段刷新，不使用任何 ANSI 光标移动或清屏控制码，
-    保证在 zsh 插件、终端复用器等环境下也不会重复/错位输出。
+    把增量文本收进 buffer，生成结束后用 ``Console.print(Markdown(...))``
+    一次性渲染，避免 rich ``Live`` 流式重绘在 zsh/zle 上下文里重复/错位输出。
+    生成期间在 stderr 打一行提示，让用户知道正在请求；非 TTY（管道/重定向）
+    则输出纯 Markdown 文本，不带 ANSI 控制码。
     """
     thread_id = _thread_id(config, args)
     buffer: list[str] = []
 
     def on_token(text: str) -> None:
         buffer.append(text)
-        sys.stdout.write(text)
-        sys.stdout.flush()
+
+    to_tty = sys.stdout.isatty()
+    if to_tty:
+        print(f"正在请求 {config.llm.model} …", file=sys.stderr, flush=True)
 
     result = agent.ask(question, context, thread_id, on_token=on_token)
-    if buffer:
-        sys.stdout.write("\n")
-        sys.stdout.flush()
+    text = "".join(buffer) or result
+
+    if to_tty:
+        Console().print(Markdown(text))
     else:
-        print(result)
+        print(text)
 
 
 def main() -> None:
