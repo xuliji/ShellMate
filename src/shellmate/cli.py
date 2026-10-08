@@ -105,29 +105,31 @@ def _ask(config, question: str, context: ShellContext, args) -> None:
 
 def main() -> None:
     """处理初始化、提问、解释上一条命令与配置查看等子命令。"""
-    parser = argparse.ArgumentParser(prog="shellmate-ai", description="Ask an AI assistant about your shell session")
+    parser = argparse.ArgumentParser(prog="shellmate-ai", description="结合当前 shell 会话向 AI 提问")
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     sub = parser.add_subparsers(dest="command")
-    ask_parser = sub.add_parser("ask", help="Ask a question using recent shell context")
-    ask_parser.add_argument("question", nargs="*", help="Question; multiple words are joined with spaces")
-    ask_parser.add_argument("--history", default="", help="Recent shell history supplied by the zsh plugin")
-    ask_parser.add_argument("--thread-id", help="LangGraph conversation ID; normally supplied by zsh")
+    ask_parser = sub.add_parser("ask", help="结合近期命令历史提问")
+    ask_parser.add_argument("question", nargs="*", help="要问的问题；多个词会用空格连接")
+    ask_parser.add_argument("--history", default="", help="近期命令历史，由 zsh 插件传入")
+    ask_parser.add_argument("--thread-id", help="LangGraph 会话 ID，通常由 zsh 传入")
     explain_parser = sub.add_parser(
         "explain",
-        help="Explain command output read from stdin (e.g. cmd 2>&1 | shellmate-ai explain)",
+        help="解释从标准输入读到的命令输出（如 cmd 2>&1 | shellmate-ai explain）",
     )
-    explain_parser.add_argument("question", nargs="*", help="Optional question; defaults to summarizing the output")
-    explain_parser.add_argument("--history", default="", help="Recent shell history supplied by the zsh plugin")
-    explain_parser.add_argument("--thread-id", help="LangGraph conversation ID; normally supplied by zsh")
+    explain_parser.add_argument("question", nargs="*", help="可选问题；默认总结这段输出")
+    explain_parser.add_argument("--history", default="", help="近期命令历史，由 zsh 插件传入")
+    explain_parser.add_argument("--thread-id", help="LangGraph 会话 ID，通常由 zsh 传入")
     last_parser = sub.add_parser(
         "explain-last",
-        help="Explain the last command and its exit code (triggered by Ctrl-G on empty prompt)",
+        help="解释上一条命令及其退出码（空缓冲按 Ctrl-G 触发）",
     )
-    last_parser.add_argument("--history", default="", help="Recent shell history supplied by the zsh plugin")
-    last_parser.add_argument("--thread-id", help="LangGraph conversation ID; normally supplied by zsh")
-    sub.add_parser("init", help="Create the local configuration and Agent prompt files")
-    sub.add_parser("config-path", help="Print the configuration file path")
-    sub.add_parser("history-lines", help="Print the configured number of history lines")
+    last_parser.add_argument("--history", default="", help="近期命令历史，由 zsh 插件传入")
+    last_parser.add_argument("--thread-id", help="LangGraph 会话 ID，通常由 zsh 传入")
+    last_parser.add_argument("--last-command", default="", help="上一条命令，由 zsh 插件传入")
+    last_parser.add_argument("--last-exit", default="", help="上一条命令的退出码，由 zsh 插件传入")
+    sub.add_parser("init", help="创建本地配置、Agent 提示词、数据目录和 zsh 插件")
+    sub.add_parser("config-path", help="打印配置文件路径")
+    sub.add_parser("history-lines", help="打印配置的历史条数")
     args = parser.parse_args()
     try:
         config = load_config()
@@ -155,11 +157,13 @@ def main() -> None:
         return
 
     if args.command == "explain-last":
-        last_command = os.environ.get("SHELLMATE_LAST_COMMAND", "").strip()
+        # 优先使用插件通过参数传入的值；环境变量仅作为旧版插件的兜底，
+        # 因为导出的环境变量会被之后启动的所有子进程继承。
+        last_command = (args.last_command or os.environ.get("SHELLMATE_LAST_COMMAND", "")).strip()
         if not last_command:
             print("shellmate-ai: 没有可解释的上一条命令。", file=sys.stderr)
             raise SystemExit(1)
-        raw_exit = os.environ.get("SHELLMATE_LAST_EXIT", "").strip()
+        raw_exit = (args.last_exit or os.environ.get("SHELLMATE_LAST_EXIT", "")).strip()
         try:
             exit_code = int(raw_exit)
         except ValueError:
@@ -199,7 +203,7 @@ def main() -> None:
         question = " ".join(args.question).strip()
     else:
         try:
-            question = input("Ask Shellmate: ").strip()
+            question = input("向 Shellmate 提问: ").strip()
         except (EOFError, KeyboardInterrupt):
             print("\nshellmate-ai: 未输入问题。", file=sys.stderr)
             raise SystemExit(1)
