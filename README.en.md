@@ -2,12 +2,18 @@
 
 [🇨🇳 简体中文](README.md) | 🇬🇧 English
 
+[![PyPI](https://img.shields.io/pypi/v/shellmate-ai?color=blue)](https://pypi.org/project/shellmate-ai/)
+[![Python](https://img.shields.io/pypi/pyversions/shellmate-ai.svg)](https://pypi.org/project/shellmate-ai/)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+
 Shellmate is an AI assistant for your zsh command line. Type a question and press **Ctrl-G** — it answers using your recent command history and any OpenAI-compatible model (OpenAI, DeepSeek, Qwen, …).
 
 ## Features
 
 - **Ctrl-G** widget — type a question and press Ctrl-G; **press Ctrl-G on an empty prompt to explain the last command**
+- Markdown rendering in the terminal (syntax-highlighted code, tables, lists)
 - Automatically captures the last command and its exit code to diagnose failures
+- On failure, shows a hint above the prompt; press **Ctrl-X** to re-run the command piped so the agent sees the full error
 - Recent command history as context
 - OpenAI-compatible protocol — OpenAI / DeepSeek / Qwen / other endpoints
 - Built-in DuckDuckGo web search, no API key required
@@ -19,32 +25,38 @@ Shellmate is an AI assistant for your zsh command line. Type a question and pres
 Requires Python 3.11+.
 
 ```sh
-pip install shellmate   # or: pip install -e . from a checkout
-shellmate init          # creates config + zsh plugin + .zshrc entry
-source ~/.zshrc         # or open a new terminal
+pip install shellmate-ai   # or: pip install -e . from a checkout
+shellmate-ai init          # creates config + zsh plugin + .zshrc entry
+source ~/.zshrc            # or open a new terminal
 ```
+
+> **Note**: the installed command is `shellmate-ai` (matching the PyPI package name).
 
 ## Usage
 
 In zsh, type a question and press **Ctrl-G**. **Press Ctrl-G on an empty prompt** to explain the last command (with its exit code) and why it failed.
 
+When a command fails (non-zero exit), a hint appears above the prompt: press **Ctrl-X** to re-run the last command as `2>&1 | shellmate-ai explain`, so the agent sees the full error before explaining (re-running can have side effects, so it is always manual).
+
 ```sh
-shellmate ask "Why did my last command fail?"          # ask directly
-shellmate ask                                          # interactive prompt
-shellmate ask --history $'ls -la\ngit status' "..."    # pass history manually
+shellmate-ai ask "Why did my last command fail?"          # ask directly
+shellmate-ai ask                                          # interactive prompt
+shellmate-ai ask --history $'ls -la\ngit status' "..."    # pass history manually
 
 # Feed command output to Shellmate for explanation (pipe mode)
-git push origin main 2>&1 | shellmate explain
-tail -200 app.log | shellmate explain "why does it keep timing out?"
+git push origin main 2>&1 | shellmate-ai explain
+tail -200 app.log | shellmate-ai explain "why does it keep timing out?"
 
-shellmate explain-last                                 # explain the last command (Ctrl-G on empty prompt)
-shellmate config-path                                  # print config path
-shellmate history-lines                                # print history size
+shellmate-ai explain-last                                 # explain the last command (Ctrl-G on empty prompt)
+shellmate-ai config-path                                  # print config path
+shellmate-ai history-lines                                # print history size
 ```
 
 ## Configuration
 
-`shellmate init` creates `~/.config/shellmate/config.json` and `Agent.md`. Set your API key there or via environment variables.
+`shellmate-ai init` creates `~/.config/shellmate/config.json` and `Agent.md`. Set your API key there or via environment variables.
+
+`Agent.md` is the system prompt and is meant to be edited: it is seeded from the packaged template `src/shellmate/prompts/Agent.md` (shipped in the wheel/sdist), written only when the file does not exist, so your edits are never overwritten. Changes apply to new sessions.
 
 ```json
 {
@@ -92,6 +104,12 @@ src/shellmate/
 ├── privacy.py         # secret redaction
 ├── zsh_plugin.py      # bundled zsh plugin (loads shellmate.zsh data file)
 ├── shellmate.zsh      # zsh plugin (Ctrl-G / preexec / precmd)
+├── prompts/
+│   └── Agent.md       # default system prompt template (written by init)
 └── tools/
     └── web_search.py  # DuckDuckGo HTML search
 ```
+
+## License
+
+[MIT](LICENSE)

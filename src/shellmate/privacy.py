@@ -3,8 +3,10 @@
 内置规则融合了常见密钥格式，并借鉴 gitleaks / detect-secrets 的思路：
 
 - 已知前缀的 token（GitHub、GitLab、Slack、Stripe、Google、AWS、npm、PyPI 等）；
+- 本身就是凭据的 URL（Slack / Discord / Teams webhook、``https://user:pass@host``）；
 - 高熵值字符串（Shannon 熵），用于捕获无固定前缀的 API key；
-- 键值赋值（``KEY=value``、``--token value`` 等）中的秘密值。
+- 键值赋值（``KEY=value``、``--token value`` 等）中的秘密值；
+- 命令行开关携带的秘密（``curl -u user:pass``、``mysql -pXXX`` 等）。
 """
 
 from __future__ import annotations
@@ -33,6 +35,27 @@ _PREFIX_PATTERNS = (
     (re.compile(r"\bASIA[0-9A-Z]{16}\b"), "[AWS ACCESS KEY REDACTED]"),
     # JWT（三段式，头部固定以 eyJ 开头）
     (re.compile(r"\beyJ[A-Za-z0-9_\-]{8,}\.[A-Za-z0-9_\-]{8,}\.[A-Za-z0-9_\-]{8,}\b"), "[JWT REDACTED]"),
+    # Webhook URL 本身就是凭据：拿到即可往对应频道发消息，因此整条替换。
+    (re.compile(r"https://hooks\.slack\.com/services/[A-Za-z0-9_\-/]+"), "[SLACK WEBHOOK REDACTED]"),
+    (
+        re.compile(r"https://(?:ptb\.|canary\.)?discord(?:app)?\.com/api/webhooks/[0-9]+/[A-Za-z0-9_\-]+"),
+        "[DISCORD WEBHOOK REDACTED]",
+    ),
+    (re.compile(r"https://[A-Za-z0-9.\-]+\.webhook\.office\.com/[^\s\"']+"), "[TEAMS WEBHOOK REDACTED]"),
+    # URL 内嵌凭据 https://user:password@host：只吃掉 :// 之后紧跟的 user:password@ 部分。
+    (re.compile(r"(?<=://)[^/\s:@]+:[^\s@]+@"), "[CREDENTIALS REDACTED]@"),
+    # 显式密码/令牌开关 --password value / --token value（要求值以空格分隔，
+    # 因此 --token-file 这类开关不会被误伤）。
+    (re.compile(r"(?i)(--(?:password|passwd|token|api[_-]?key|secret)\s+)(\S+)"), r"\1[REDACTED]"),
+    # curl -u user:password / --user user:password。要求值里带冒号，
+    # 否则会把 tar -u、rsync -u 这类普通开关的后续参数当成秘密。
+    (re.compile(r"(?i)(\s(?:-u|--user)\s+)([^\s:]+:[^\s@]+)"), r"\1[REDACTED]"),
+    # mysql 系客户端的贴写密码 -pXXX；仅在这些命令后出现时匹配，
+    # 避免误伤 ssh -p2222（端口）等用法。-p 后无内容表示交互输入，保持原样。
+    (
+        re.compile(r"(?i)(\b(?:mysql|mariadb|mysqldump|mysqladmin|mysqlsh)\b[^\n]*?\s-p)(?=\S)(\S+)"),
+        r"\1[REDACTED]",
+    ),
 )
 
 # 秘密关键词片段：既匹配独立单词（token、secret…），也匹配变量名中的片段
@@ -75,8 +98,20 @@ class SecretRedactionMiddleware:
         (re.compile(r"\bAKIA[0-9A-Z]{16}\b"), "[AWS ACCESS KEY REDACTED]"),
         (re.compile(r"\b(?:sk|pk)-(?:proj-)?[A-Za-z0-9_-]{16,}\b"), "[API KEY REDACTED]"),
         (re.compile(r"\bBearer\s+[A-Za-z0-9._~+/=-]{12,}", re.IGNORECASE), "Bearer [REDACTED]"),
-        # 键值赋值：KEY=value / KEY: value，其中 KEY 含秘密关键词（独立词或变量名片段）。
-        (re.compile(rf"(?i)(\b\w*(?:{_SECRET_KEYWORD})\w*\b\s*[=:]\s*)([^\s;&]+)"), r"\1[REDACTED]"),
+        # 键值赋值：KEY=value / KEY: value / "KEY": "value"，KEY 含秘密关键词。
+        # 三个细节：
+        # 1. 键允许带结尾引号，覆盖 JSON/YAML 里的 "password": "..."；
+        # 2. 值若是引号包裹的，整段吃掉，否则带空格的引号秘密只会被替换掉第一个词，
+        #    剩下的部分照样发往模型（例如 PASSWORD="hunter2 is my pass"）；
+        # 3. 不带引号的值不允许出现 "["，因为替换产生的占位符形如 [API KEY REDACTED]，
+        #    若允许匹配，后续规则会把占位符的第一个词再替换一次，留下 "KEY REDACTED]" 残渣。
+        (
+            re.compile(
+                rf"(?i)(\b\w*(?:{_SECRET_KEYWORD})\w*[\"']?\s*[=:]\s*)"
+                r"(\"(?:[^\"\\]|\\.)*\"|'[^']*'|[^\s;&\[]+)"
+            ),
+            r"\1[REDACTED]",
+        ),
     )
 
     def __init__(
@@ -124,7 +159,11 @@ class SecretRedactionMiddleware:
         return self._redact_high_entropy_tokens(text)
 
     def before_model(self, value: Any) -> Any:
-        """在调用模型前返回经过脱敏的文本或消息副本。"""
+        """在调用模型前返回经过脱敏的文本或消息副本。
+
+        调用方需自行排除不需要脱敏的内容：系统提示词来自用户本地的 ``Agent.md``，
+        其中的命令示例会被脱敏规则改写，因此 ``agent.py`` 只把对话消息传进来。
+        """
         if isinstance(value, str):
             return self.redact(value)
         if isinstance(value, Mapping):

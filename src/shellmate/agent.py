@@ -77,9 +77,21 @@ class LangGraphAgent:
         return {"messages": [SystemMessage(content=load_system_prompt())]}
 
     def _call_model(self, state: AgentState) -> dict[str, list[AnyMessage]]:
-        """模型节点：在请求边界脱敏，并将新消息交回图状态。"""
-        safe_messages = self.privacy.before_model(state["messages"])
-        response = self.model.invoke(safe_messages)
+        """模型节点：对齐消息顺序、在请求边界脱敏，再调用模型。
+
+        两处必要处理：
+
+        1. ``system_prompt`` 节点是在用户消息之后写入状态的，直接发送会让系统提示词
+           排在用户消息后面；部分 OpenAI 兼容服务会拒绝或忽略这种情况，因此这里把
+           系统提示词提到最前。
+        2. 系统提示词来自用户本地编辑的 ``Agent.md``，属于可信输入，且脱敏规则会破坏
+           其中的命令示例（如 ``KEY=value``），所以不经过脱敏，只有对话消息需要脱敏。
+        """
+        messages = state["messages"]
+        system = [message for message in messages if isinstance(message, SystemMessage)]
+        conversation = [message for message in messages if not isinstance(message, SystemMessage)]
+        safe_messages = self.privacy.before_model(conversation)
+        response = self.model.invoke([*system, *safe_messages])
         return {"messages": [response]}
 
     def _wrap_tool_call(self, request, execute):
@@ -138,5 +150,5 @@ class LangGraphAgent:
         last_message = result["messages"][-1]
         content = last_message.content
         if isinstance(content, str):
-            return content or "(No response content.)"
+            return content or "（模型没有返回内容。）"
         return "\n".join(str(block.get("text", block)) for block in content)
