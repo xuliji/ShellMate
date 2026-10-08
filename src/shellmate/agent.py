@@ -90,6 +90,7 @@ class LangGraphAgent:
         if not thread_id or len(thread_id) > 128:
             raise AgentError("thread_id 必须为 1 到 128 个字符。")
         graph_config = {"configurable": {"thread_id": thread_id}}
+        print(context.as_text())
         user_content = (
             f"Shell context (recent command history):\n{context.as_text()}"
             f"\n\nQuestion: {question}"

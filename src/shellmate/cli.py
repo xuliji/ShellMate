@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 
 from shellmate.agent import AgentError, LangGraphAgent
 from shellmate.config import AGENT_PROMPT_PATH, CONFIG_PATH, DATA_DIR, ensure_data_dir, load_config
-from shellmate.context import read_context
+from shellmate.context import read_context, read_zsh_history
 
 
 def main() -> None:
@@ -15,7 +16,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(prog="shellmate", description="Ask an AI assistant about your shell session")
     sub = parser.add_subparsers(dest="command")
     ask_parser = sub.add_parser("ask", help="Ask a question using recent shell context")
-    ask_parser.add_argument("question", nargs="?", help="Question; if omitted, prompt interactively")
+    ask_parser.add_argument("question", nargs="*", help="Question; multiple words are joined with spaces")
     ask_parser.add_argument("--history", default="", help="Recent shell history supplied by the zsh plugin")
     ask_parser.add_argument("--thread-id", help="LangGraph conversation ID; normally supplied by zsh")
     sub.add_parser("init", help="Create the local configuration and Agent prompt files")
@@ -42,11 +43,26 @@ def main() -> None:
     if args.command != "ask":
         parser.print_help()
         return
-    question = args.question or input("Ask Shellmate: ")
+    if args.question:
+        question = " ".join(args.question).strip()
+    else:
+        try:
+            question = input("Ask Shellmate: ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print("\nshellmate: 未输入问题。", file=sys.stderr)
+            raise SystemExit(1)
+    if not question:
+        print("shellmate: 未输入问题。", file=sys.stderr)
+        raise SystemExit(1)
     try:
-        # zsh 插件传入当前会话的近期命令历史。
-        context = read_context(args.history)
-        thread_id = args.thread_id or config.thread_id
+        # 历史来源优先级：zsh 插件经 --history 传入 > 环境变量 > 历史文件兜底。
+        history = (
+            args.history
+            or os.environ.get("SHELLMATE_HISTORY_TEXT", "")
+            or read_zsh_history(config.shell.history_lines)
+        )
+        context = read_context(history)
+        thread_id = args.thread_id or os.environ.get("SHELLMATE_SESSION_ID") or config.thread_id
         print(LangGraphAgent(config).ask(question, context, thread_id))
     except (AgentError, ValueError, OSError) as exc:
         print(f"shellmate: {exc}", file=sys.stderr)

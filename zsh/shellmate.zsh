@@ -7,15 +7,22 @@ if [[ "${SHELLMATE_SESSION_OWNER_PID:-}" != "$$" ]]; then
 fi
 
 shellmate-widget() {
-  local history_text
   local history_lines
+  local question
   # 从配置读取历史行数；CLI 不可用时默认取最近 20 条。
   history_lines="$(command shellmate history-lines 2>/dev/null || print 20)"
-  # 使用 zsh 内置 fc 命令获取最近历史，并传给 Python CLI。
-  history_text="$(fc -ln -${history_lines} 2>/dev/null)"
-  # 退出 ZLE 行编辑状态后运行 CLI，完成后刷新提示符。
+  # 用 zsh 内置 fc 命令获取最近历史，通过环境变量传给 CLI。
+  # 不直接写进命令行：历史可能含换行，展开到缓冲区会破坏命令结构。
+  export SHELLMATE_HISTORY_TEXT="$(fc -ln -${history_lines} 2>/dev/null)"
+  # 用户先在命令行输入问题，按 Ctrl-G 时读取当前行作为问题。
+  question="$BUFFER"
+  # 清空当前行，避免回答输出与问题混在一起。
+  BUFFER=""
+  CURSOR=0
   zle -I
-  command shellmate ask --history "$history_text" --thread-id "$SHELLMATE_SESSION_ID"
+  if [[ -n "$question" ]]; then
+    command shellmate ask "$question"
+  fi
   zle reset-prompt 2>/dev/null
 }
 zle -N shellmate-widget
