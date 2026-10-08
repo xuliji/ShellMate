@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import argparse
+import itertools
 import os
 import sys
+import threading
 
 from rich.console import Console
 from rich.markdown import Markdown
@@ -44,17 +46,54 @@ def _thread_id(config, args) -> str:
     )
 
 
+_SPINNER_CHARS = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+
+
+class _Spinner:
+    """在 stderr 上显示单行动态加载态，退出时清除该行。
+
+    用 ``\\r`` 回到行首再覆盖，不用多行光标移动，避免在 zsh/zle 等环境
+    出现重复或残留。
+    """
+
+    def __init__(self, message: str) -> None:
+        self._message = message
+        self._stop = threading.Event()
+        self._thread = threading.Thread(target=self._run, daemon=True)
+
+    def _run(self) -> None:
+        for char in itertools.cycle(_SPINNER_CHARS):
+            if self._stop.is_set():
+                break
+            sys.stderr.write(f"\r{char} {self._message}")
+            sys.stderr.flush()
+            self._stop.wait(0.08)
+
+    def __enter__(self) -> "_Spinner":
+        self._thread.start()
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        self._stop.set()
+        self._thread.join(timeout=1)
+        sys.stderr.write("\r\x1b[K")
+        sys.stderr.flush()
+
+
 def _ask(config, question: str, context: ShellContext, args) -> None:
     """运行 agent 并打印回答，统一异常处理。
 
-    生成期间在 stderr 打一行提示；TTY 下用 rich 一次性渲染 Markdown，
+    生成期间在 stderr 显示动态加载态；TTY 下用 rich 一次性渲染 Markdown，
     非 TTY（管道/重定向）则输出纯 Markdown 文本。
     """
     try:
+        agent = LangGraphAgent(config)
         to_tty = sys.stdout.isatty()
-        if to_tty:
-            print(f"正在请求 {config.llm.model} …", file=sys.stderr, flush=True)
-        result = LangGraphAgent(config).ask(question, context, _thread_id(config, args))
+        if sys.stderr.isatty():
+            with _Spinner(f"正在请求 {config.llm.model} …"):
+                result = agent.ask(question, context, _thread_id(config, args))
+        else:
+            result = agent.ask(question, context, _thread_id(config, args))
         if to_tty:
             Console().print(Markdown(result))
         else:
