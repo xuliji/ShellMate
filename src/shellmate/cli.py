@@ -5,6 +5,11 @@ from __future__ import annotations
 import argparse
 import os
 import sys
+import time
+
+from rich.console import Console
+from rich.live import Live
+from rich.markdown import Markdown
 
 from shellmate import __version__
 from shellmate.agent import AgentError, LangGraphAgent
@@ -42,12 +47,58 @@ def _thread_id(config, args) -> str:
 
 
 def _ask(config, question: str, context: ShellContext, args) -> None:
-    """运行 agent 并打印回答，统一异常处理。"""
+    """运行 agent 并流式打印回答，统一异常处理。
+
+    - 标准输出是终端（TTY）时，用 rich 边生成边渲染 Markdown（代码高亮、表格、
+      列表等），回答逐字刷新；
+    - 输出被管道/重定向时，直接流式输出原始 Markdown 文本，避免混入 ANSI 转义。
+    """
     try:
-        print(LangGraphAgent(config).ask(question, context, _thread_id(config, args)))
+        _stream_answer(LangGraphAgent(config), config, question, context, args)
     except (AgentError, ValueError, OSError) as exc:
         print(f"shellmate: {exc}", file=sys.stderr)
         raise SystemExit(1) from exc
+
+
+def _stream_answer(agent: LangGraphAgent, config, question: str, context: ShellContext, args) -> None:
+    """把 agent 的增量回答写到标准输出：TTY 渲染 Markdown，否则输出纯文本。"""
+    thread_id = _thread_id(config, args)
+    buffer: list[str] = []
+
+    if sys.stdout.isatty():
+        console = Console()
+        last_render = 0.0
+
+        def on_token(text: str) -> None:
+            nonlocal last_render
+            buffer.append(text)
+            now = time.monotonic()
+            # 节流重绘，避免逐 token 刷新导致闪烁与 CPU 占用过高。
+            if now - last_render >= 0.05:
+                last_render = now
+                live.update(Markdown("".join(buffer)))
+
+        with Live(
+            Markdown(""),
+            console=console,
+            refresh_per_second=20,
+            vertical_overflow="visible",
+        ) as live:
+            result = agent.ask(question, context, thread_id, on_token=on_token)
+            # 结束时渲染完整内容；若模型未流式返回任何正文，则回退到 result。
+            live.update(Markdown("".join(buffer) or result))
+    else:
+        def on_token(text: str) -> None:
+            buffer.append(text)
+            sys.stdout.write(text)
+            sys.stdout.flush()
+
+        result = agent.ask(question, context, thread_id, on_token=on_token)
+        if buffer:
+            sys.stdout.write("\n")
+            sys.stdout.flush()
+        else:
+            print(result)
 
 
 def main() -> None:
