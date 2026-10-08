@@ -6,6 +6,7 @@ import argparse
 import os
 import sys
 
+from shellmate import __version__
 from shellmate.agent import AgentError, LangGraphAgent
 from shellmate.config import (
     AGENT_PROMPT_PATH,
@@ -52,6 +53,7 @@ def _ask(config, question: str, context: ShellContext, args) -> None:
 def main() -> None:
     """处理初始化、提问、解释上一条命令与配置查看等子命令。"""
     parser = argparse.ArgumentParser(prog="shellmate", description="Ask an AI assistant about your shell session")
+    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     sub = parser.add_subparsers(dest="command")
     ask_parser = sub.add_parser("ask", help="Ask a question using recent shell context")
     ask_parser.add_argument("question", nargs="*", help="Question; multiple words are joined with spaces")

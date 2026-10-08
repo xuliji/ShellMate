@@ -2,6 +2,10 @@
 
 🇨🇳 简体中文 | [🇬🇧 English](README.en.md)
 
+[![PyPI](https://img.shields.io/pypi/v/shellmate-ai?color=blue)](https://pypi.org/project/shellmate-ai/)
+[![Python](https://img.shields.io/pypi/pyversions/shellmate-ai.svg)](https://pypi.org/project/shellmate-ai/)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+
 Shellmate 是一个面向 zsh 的命令行 AI 助手。在命令行输入问题后按 **Ctrl-G**，它会结合近期命令历史，用任意 OpenAI 兼容模型（OpenAI、DeepSeek、Qwen 等）给出回答。
 
 ## 功能
@@ -19,10 +23,12 @@ Shellmate 是一个面向 zsh 的命令行 AI 助手。在命令行输入问题�
 需要 Python 3.11+。
 
 ```sh
-pip install shellmate   # 或从源码：pip install -e .
-shellmate init          # 创建配置 + zsh 插件 + .zshrc 加载行
-source ~/.zshrc         # 或重开终端
+pip install shellmate-ai   # 或从源码：pip install -e .
+shellmate init             # 创建配置 + zsh 插件 + .zshrc 加载行
+source ~/.zshrc            # 或重开终端
 ```
+
+> **注**：PyPI 上的包名是 `shellmate-ai`，安装后的命令行工具名仍为 `shellmate`。
 
 ## 使用
 
@@ -95,3 +101,7 @@ src/shellmate/
 └── tools/
     └── web_search.py  # DuckDuckGo HTML 搜索
 ```
+
+## License
+
+[MIT](LICENSE)

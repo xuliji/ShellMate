@@ -2,6 +2,10 @@
 
 [🇨🇳 简体中文](README.md) | 🇬🇧 English
 
+[![PyPI](https://img.shields.io/pypi/v/shellmate-ai?color=blue)](https://pypi.org/project/shellmate-ai/)
+[![Python](https://img.shields.io/pypi/pyversions/shellmate-ai.svg)](https://pypi.org/project/shellmate-ai/)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+
 Shellmate is an AI assistant for your zsh command line. Type a question and press **Ctrl-G** — it answers using your recent command history and any OpenAI-compatible model (OpenAI, DeepSeek, Qwen, …).
 
 ## Features
@@ -19,10 +23,12 @@ Shellmate is an AI assistant for your zsh command line. Type a question and pres
 Requires Python 3.11+.
 
 ```sh
-pip install shellmate   # or: pip install -e . from a checkout
-shellmate init          # creates config + zsh plugin + .zshrc entry
-source ~/.zshrc         # or open a new terminal
+pip install shellmate-ai   # or: pip install -e . from a checkout
+shellmate init             # creates config + zsh plugin + .zshrc entry
+source ~/.zshrc            # or open a new terminal
 ```
+
+> **Note**: the package on PyPI is named `shellmate-ai`; the installed command is still `shellmate`.
 
 ## Usage
 
@@ -95,3 +101,7 @@ src/shellmate/
 └── tools/
     └── web_search.py  # DuckDuckGo HTML search
 ```
+
+## License
+
+[MIT](LICENSE)

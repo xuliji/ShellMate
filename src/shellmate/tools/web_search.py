@@ -92,7 +92,7 @@ def web_search(query: str, endpoint: str, count: int = 5, timeout: float = 15.0)
         endpoint,
         data=urlencode({"q": query}).encode("utf-8"),
         headers={
-            "User-Agent": "Mozilla/5.0 (compatible; Shellmate/0.1; +https://github.com/)",
+            "User-Agent": "Mozilla/5.0 (compatible; Shellmate/0.1; +https://pypi.org/project/shellmate-ai/)",
             "Accept": "text/html,application/xhtml+xml",
             "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
             "Content-Type": "application/x-www-form-urlencoded",
