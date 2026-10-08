@@ -13,6 +13,7 @@ Shellmate is an AI assistant for your zsh command line. Type a question and pres
 - **Ctrl-G** widget — type a question and press Ctrl-G; **press Ctrl-G on an empty prompt to explain the last command**
 - Markdown rendering in the terminal (syntax-highlighted code, tables, lists)
 - Automatically captures the last command and its exit code to diagnose failures
+- On failure, shows a hint above the prompt; press **Ctrl-X** to re-run the command piped so the agent sees the full error
 - Recent command history as context
 - OpenAI-compatible protocol — OpenAI / DeepSeek / Qwen / other endpoints
 - Built-in DuckDuckGo web search, no API key required
@@ -34,6 +35,8 @@ source ~/.zshrc            # or open a new terminal
 ## Usage
 
 In zsh, type a question and press **Ctrl-G**. **Press Ctrl-G on an empty prompt** to explain the last command (with its exit code) and why it failed.
+
+When a command fails (non-zero exit), a hint appears above the prompt: press **Ctrl-X** to re-run the last command as `2>&1 | shellmate-ai explain`, so the agent sees the full error before explaining (re-running can have side effects, so it is always manual).
 
 ```sh
 shellmate-ai ask "Why did my last command fail?"          # ask directly

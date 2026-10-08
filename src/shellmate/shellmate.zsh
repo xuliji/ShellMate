@@ -10,19 +10,30 @@ fi
 # 记录上一条命令及其退出码，供 Ctrl-G 空缓冲时自动解释失败原因。
 typeset -g SHELLMATE_LAST_COMMAND=""
 typeset -g SHELLMATE_LAST_EXIT=0
+# 标记上一条命令是否为 Shellmate 自身调用，避免对自身失败误报提示。
+typeset -g SHELLMATE_INTERNAL_COMMAND=0
 
 shellmate-preexec() {
   local cmd="$1"
   # 跳过 Shellmate 自身的调用，保留上一条真实命令供解释。
   case "$cmd" in
-    shellmate-ai\ *|command\ shellmate-ai\ *) return ;;
+    shellmate-ai\ *|command\ shellmate-ai\ *)
+      SHELLMATE_INTERNAL_COMMAND=1
+      return ;;
   esac
+  SHELLMATE_INTERNAL_COMMAND=0
   SHELLMATE_LAST_COMMAND="$cmd"
 }
 
 shellmate-precmd() {
   # precmd 在每条命令结束后、显示提示符前执行，$? 即上一条命令的退出码。
   SHELLMATE_LAST_EXIT=$?
+  # 真实命令失败时，在提示符上方提示可重跑并让 agent 看完整报错。
+  if [[ $SHELLMATE_INTERNAL_COMMAND -eq 0 && $SHELLMATE_LAST_EXIT -ne 0 && -n "$SHELLMATE_LAST_COMMAND" ]]; then
+    print -P "%F{yellow}⚠ 上一条命令失败 (exit $SHELLMATE_LAST_EXIT)%f"
+    print -P "%F{yellow}  按 Ctrl-X 重跑并用报错让 agent 解释，或按 Ctrl-G 直接解释%f"
+  fi
+  SHELLMATE_INTERNAL_COMMAND=0
 }
 
 autoload -Uz add-zsh-hook
@@ -54,3 +65,19 @@ shellmate-widget() {
 }
 zle -N shellmate-widget
 bindkey '^G' shellmate-widget
+
+# 用管道重跑上一条命令，把完整输出喂给 agent 解释（命令失败后的 Ctrl-X）。
+shellmate-rerun-explain() {
+  local cmd="$SHELLMATE_LAST_COMMAND"
+  if [[ -z "$cmd" ]]; then
+    print -P "%F{red}没有可重跑的上一条命令。%f" >&2
+    return
+  fi
+  zle -I
+  print -P "%F{yellow}重跑并解释：${cmd}%f" >&2
+  # 重跑可能有副作用，因此由用户显式按键触发；输出经管道交给 agent，不再回显。
+  eval "$cmd" 2>&1 | command shellmate-ai explain
+  zle reset-prompt 2>/dev/null
+}
+zle -N shellmate-rerun-explain
+bindkey '^X' shellmate-rerun-explain
