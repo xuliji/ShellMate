@@ -11,7 +11,6 @@ Shellmate is an AI assistant for your zsh command line. Type a question and pres
 ## Features
 
 - **Ctrl-G** widget — type a question and press Ctrl-G; **press Ctrl-G on an empty prompt to explain the last command**
-- Streaming generation, rendered once when complete
 - Markdown rendering in the terminal (syntax-highlighted code, tables, lists)
 - Automatically captures the last command and its exit code to diagnose failures
 - Recent command history as context

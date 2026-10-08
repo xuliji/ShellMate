@@ -45,39 +45,23 @@ def _thread_id(config, args) -> str:
 
 
 def _ask(config, question: str, context: ShellContext, args) -> None:
-    """运行 agent 并流式打印回答，统一异常处理。"""
+    """运行 agent 并打印回答，统一异常处理。
+
+    生成期间在 stderr 打一行提示；TTY 下用 rich 一次性渲染 Markdown，
+    非 TTY（管道/重定向）则输出纯 Markdown 文本。
+    """
     try:
-        _stream_answer(LangGraphAgent(config), config, question, context, args)
+        to_tty = sys.stdout.isatty()
+        if to_tty:
+            print(f"正在请求 {config.llm.model} …", file=sys.stderr, flush=True)
+        result = LangGraphAgent(config).ask(question, context, _thread_id(config, args))
+        if to_tty:
+            Console().print(Markdown(result))
+        else:
+            print(result)
     except (AgentError, ValueError, OSError) as exc:
         print(f"shellmate-ai: {exc}", file=sys.stderr)
         raise SystemExit(1) from exc
-
-
-def _stream_answer(agent: LangGraphAgent, config, question: str, context: ShellContext, args) -> None:
-    """运行 agent 并把回答打印到终端。
-
-    把增量文本收进 buffer，生成结束后用 ``Console.print(Markdown(...))``
-    一次性渲染，避免 rich ``Live`` 流式重绘在 zsh/zle 上下文里重复/错位输出。
-    生成期间在 stderr 打一行提示，让用户知道正在请求；非 TTY（管道/重定向）
-    则输出纯 Markdown 文本，不带 ANSI 控制码。
-    """
-    thread_id = _thread_id(config, args)
-    buffer: list[str] = []
-
-    def on_token(text: str) -> None:
-        buffer.append(text)
-
-    to_tty = sys.stdout.isatty()
-    if to_tty:
-        print(f"正在请求 {config.llm.model} …", file=sys.stderr, flush=True)
-
-    result = agent.ask(question, context, thread_id, on_token=on_token)
-    text = "".join(buffer) or result
-
-    if to_tty:
-        Console().print(Markdown(text))
-    else:
-        print(text)
 
 
 def main() -> None:

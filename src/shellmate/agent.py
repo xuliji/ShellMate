@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Callable, TypedDict
+from typing import Annotated, TypedDict
 
-from langchain_core.messages import AIMessage, AIMessageChunk, AnyMessage, HumanMessage, SystemMessage, ToolMessage
+from langchain_core.messages import AnyMessage, HumanMessage, SystemMessage, ToolMessage
 from langchain_core.tools import tool
 from langchain_openai import ChatOpenAI
 from langgraph.checkpoint.sqlite import SqliteSaver
@@ -28,26 +28,6 @@ def load_system_prompt() -> str:
     return prompt
 
 
-def _stream_text(chunk: AnyMessage) -> str:
-    """从流式 chunk 中提取增量文本，供终端实时打印。
-
-    OpenAI 兼容接口流式返回时，正文通常直接是字符串；部分实现会以
-    content blocks（``{"type": "text", "text": ...}``）形式返回，这里一并兼容。
-    """
-    content = getattr(chunk, "content", None)
-    if isinstance(content, str):
-        return content
-    if isinstance(content, list):
-        parts: list[str] = []
-        for block in content:
-            if isinstance(block, dict) and block.get("type") == "text":
-                parts.append(str(block.get("text", "")))
-            elif isinstance(block, str):
-                parts.append(block)
-        return "".join(parts)
-    return ""
-
-
 class AgentState(TypedDict):
     """图内共享状态；add_messages 负责按 ID 合并并追加消息。"""
 
@@ -63,7 +43,6 @@ class LangGraphAgent:
 
     def __init__(self, config: AppConfig):
         self.config = config
-        self._on_token: Callable[[str], None] | None = None
         ensure_data_dir()
         self.privacy = SecretRedactionMiddleware(
             config.privacy.redact_secrets,
@@ -98,32 +77,9 @@ class LangGraphAgent:
         return {"messages": [SystemMessage(content=load_system_prompt())]}
 
     def _call_model(self, state: AgentState) -> dict[str, list[AnyMessage]]:
-        """模型节点：在请求边界脱敏，流式调用模型并边生成边回调输出。
-
-        与 ``invoke`` 不同，这里用 ``model.stream`` 逐块消费响应，把增量文本
-        交给 ``_on_token`` 回调，同时将各块聚合成一条完整的 ``AIMessage``
-        （含 tool_calls）交回图状态，供 ``tools_condition`` 判定是否调用工具。
-        """
+        """模型节点：在请求边界脱敏，调用模型并将新消息交回图状态。"""
         safe_messages = self.privacy.before_model(state["messages"])
-        full: AIMessageChunk | None = None
-        for chunk in self.model.stream(safe_messages):
-            text = _stream_text(chunk)
-            if text and self._on_token is not None:
-                self._on_token(text)
-            full = chunk if full is None else full + chunk
-        if full is None:
-            return {"messages": []}
-        # 聚合成普通 AIMessage，保证 LangGraph 与 tools_condition 拿到干净的
-        # content 与 tool_calls，而非流式专用的 AIMessageChunk。
-        response = AIMessage(
-            content=full.content,
-            additional_kwargs=full.additional_kwargs,
-            response_metadata=full.response_metadata,
-            tool_calls=full.tool_calls,
-            invalid_tool_calls=full.invalid_tool_calls,
-            usage_metadata=full.usage_metadata,
-            id=full.id,
-        )
+        response = self.model.invoke(safe_messages)
         return {"messages": [response]}
 
     def _wrap_tool_call(self, request, execute):
@@ -158,18 +114,8 @@ class LangGraphAgent:
         graph.add_edge("tools", "assistant")
         return graph.compile(checkpointer=checkpointer)
 
-    def ask(
-        self,
-        question: str,
-        context: ShellContext,
-        thread_id: str,
-        on_token: Callable[[str], None] | None = None,
-    ) -> str:
-        """用 LangGraph 配置中的 thread_id 恢复并更新本地 shell 会话。
-
-        传入 ``on_token`` 时，模型回答会边生成边回调增量文本，用于终端流式输出。
-        """
-        self._on_token = on_token
+    def ask(self, question: str, context: ShellContext, thread_id: str) -> str:
+        """用 LangGraph 配置中的 thread_id 恢复并更新本地 shell 会话。"""
         thread_id = thread_id.strip()
         if not thread_id or len(thread_id) > 128:
             raise AgentError("thread_id 必须为 1 到 128 个字符。")
