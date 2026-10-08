@@ -39,7 +39,7 @@ shellmate-precmd() {
   # 真实命令失败时，在提示符上方提示可重跑并让 agent 看完整报错。
   if [[ $last_exit -ne 0 && -n "$SHELLMATE_LAST_COMMAND" ]]; then
     print -P "%F{yellow}⚠ 上一条命令失败 (exit $last_exit)%f"
-    print -P "%F{yellow}  按 Ctrl-X 重跑并用报错让 agent 解释，或按 Ctrl-G 直接解释%f"
+    print -P "%F{yellow}  按 Ctrl-X 重跑并把报错交给 agent；按 Ctrl-G 只用命令和退出码解释%f"
   fi
 }
 

@@ -35,7 +35,14 @@ source ~/.zshrc            # or open a new terminal
 
 ## Usage
 
-In zsh, type a question and press **Ctrl-G**. **Press Ctrl-G on an empty prompt** to explain the last command (with its exit code) and why it failed.
+In zsh, type a question and press **Ctrl-G**. **Press Ctrl-G on an empty prompt** to explain the last command — but it only receives the command itself and its exit code: **the command's output is never captured**, because zsh has no post-exec hook and the output is gone by the time the prompt is redrawn. To let the agent see the actual error, use **Ctrl-X** or pipe the command yourself.
+
+| Trigger | What the agent sees |
+| --- | --- |
+| Ctrl-G (prompt has text) | your question + recent command history |
+| Ctrl-G (empty prompt) | the last command + its exit code + recent history, **without that command's output** |
+| Ctrl-X | re-runs the last command and hands the merged stdout+stderr to the agent |
+| `cmd 2>&1 \| shellmate-ai explain` | same as above, but you decide which command runs |
 
 When a command fails (non-zero exit), a hint appears above the prompt: press **Ctrl-X** to re-run the last command as `2>&1 | shellmate-ai explain`, so the agent sees the merged output before explaining (re-running can have side effects, so it is always manual).
 

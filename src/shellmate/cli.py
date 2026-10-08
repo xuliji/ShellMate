@@ -170,10 +170,21 @@ def main() -> None:
             exit_code = None
         history = _history_text(config, args)
         context = ShellContext(history=history, last_command=last_command, last_exit_code=exit_code)
+        # zsh 没有 postexec 钩子，命令输出在 precmd 执行时已经消失，插件无法事后捕获，
+        # 这里能给的只有命令本身、退出码和历史。必须明确告诉模型"没有输出"，否则它会
+        # 顺着"解释失败原因"的提问编造一段看起来合理的报错。
         if exit_code == 0:
-            question = "解释一下刚才这条命令：它做了什么、输出或副作用是什么、有什么值得注意的地方。"
+            question = (
+                "解释一下刚才这条命令：它做了什么、有什么副作用或值得注意的地方。"
+                "注意：没有捕获到它的输出，不要假定或编造输出内容；如需确认，请给出"
+                "获取输出的命令（例如 `cmd 2>&1 | shellmate-ai explain`）。"
+            )
         else:
-            question = "刚才这条命令失败了。结合退出码解释它为什么会失败，并给出如何排查和修复的具体建议。"
+            question = (
+                "刚才这条命令失败了，但没有捕获到它的输出，目前只有命令本身和退出码。"
+                "请结合退出码说明最可能的原因、还需要哪些输出才能确认，并给出获取该输出的"
+                "具体命令（例如 `cmd 2>&1 | shellmate-ai explain`）。不要编造具体的报错内容。"
+            )
         _ask(config, question, context, args)
         return
 
