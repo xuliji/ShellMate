@@ -10,10 +10,10 @@ Shellmate is an AI assistant for your zsh command line. Type a question and pres
 
 ## Features
 
-- **Ctrl-G** widget — type a question and press Ctrl-G; **press Ctrl-G on an empty prompt to explain the last command**
+- **Ctrl-G** widget — type a question at the prompt and press Ctrl-G (on an empty prompt it just asks you to type a question)
 - Markdown rendering in the terminal (syntax-highlighted code, tables, lists)
-- Automatically captures the last command and its exit code to diagnose failures
-- On failure, shows a hint above the prompt; press **Ctrl-X** to re-run the command piped so the agent sees the full error
+- Captures the last command and its exit code, and flags failures above the prompt
+- On failure, press **Ctrl-X** to re-run the command piped so the agent sees the **full error**
 - Recent command history as context
 - OpenAI-compatible protocol — OpenAI / DeepSeek / Qwen / other endpoints
 - Editable system prompt (`~/.config/shellmate/Agent.md`) with a default template shipped in the package
@@ -35,18 +35,19 @@ source ~/.zshrc            # or open a new terminal
 
 ## Usage
 
-In zsh, type a question and press **Ctrl-G**. **Press Ctrl-G on an empty prompt** to explain the last command — but it only receives the command itself and its exit code: **the command's output is never captured**, because zsh has no post-exec hook and the output is gone by the time the prompt is redrawn. To let the agent see the actual error, use **Ctrl-X** or pipe the command yourself.
+In zsh, type a question and press **Ctrl-G**; the agent answers using your recent command history. Pressing Ctrl-G on an empty prompt no longer guesses why the last command failed — it only reminds you to type a question. The reason: zsh has no post-exec hook, so the command's output is gone by the time the prompt is redrawn and Shellmate never captured it. To let the agent see the actual error, press **Ctrl-X** to re-run the command, or pipe it yourself.
 
 | Trigger | What the agent sees |
 | --- | --- |
 | Ctrl-G (prompt has text) | your question + recent command history |
-| Ctrl-G (empty prompt) | the last command + its exit code + recent history, **without that command's output** |
+| Ctrl-G (empty prompt) | no question is sent; the terminal just asks you to type one |
 | Ctrl-X | re-runs the last command and hands the merged stdout+stderr to the agent |
 | `cmd 2>&1 \| shellmate-ai explain` | same as above, but you decide which command runs |
+| `shellmate-ai explain-last --last-command CMD --last-exit N` | only the command and its exit code, **no output**; meant for scripts, and the model is told not to invent an error |
 
 When a command fails (non-zero exit), a hint appears above the prompt: press **Ctrl-X** to re-run the last command as `2>&1 | shellmate-ai explain`, so the agent sees the merged output before explaining (re-running can have side effects, so it is always manual).
 
-> **Note**: Ctrl-X works at any time, not only after a failure, and long output is truncated to the last 20,000 characters. `^X` is also a prefix of the default zsh key sequences (`^X^U` undo, `^Xr` history search, …), so ZLE waits for `KEYTIMEOUT` (0.4 s by default) before triggering the re-run — those longer sequences still work, and you can lower `KEYTIMEOUT` if the delay feels slow.
+> **Note**: Ctrl-X works at any time, not only after a failure, and long output is truncated to the last 20,000 characters. `^X` is also a prefix of the default zsh key sequences (`^X^U` undo, `^Xr` history search, …), so ZLE waits for `KEYTIMEOUT` (0.4 s by default) before triggering the re-run — those longer sequences still work, and you can lower `KEYTIMEOUT` if the delay feels slow. Binding Ctrl-G also overrides zsh's default `send-break` (cancel the current command line); run `bindkey '^G' send-break` to get it back, or rebind the plugin to another key.
 
 ```sh
 shellmate-ai ask "Why did my last command fail?"            # ask directly
@@ -58,7 +59,7 @@ shellmate-ai ask --thread-id my-task "new session"          # pick the session I
 git push origin main 2>&1 | shellmate-ai explain
 tail -200 app.log | shellmate-ai explain "why does it keep timing out?"
 
-shellmate-ai explain-last                                 # explain the last command (Ctrl-G on empty prompt)
+shellmate-ai explain-last --last-command "make build" --last-exit 2  # exit code only, no output
 shellmate-ai config-path                                  # print config path
 shellmate-ai history-lines                                # print history size
 ```
@@ -90,7 +91,7 @@ Environment variables override JSON settings:
 | `SHELLMATE_THREAD_ID` | `thread_id` (conversation ID, default `shellmate-cli-default`) |
 | `SHELLMATE_SEARCH_ENDPOINT` | `search.endpoint` |
 
-The CLI also reads `SHELLMATE_SESSION_ID` (the conversation ID when `--thread-id` is absent, set per window by the zsh plugin), plus `SHELLMATE_HISTORY_TEXT`, `SHELLMATE_LAST_COMMAND` and `SHELLMATE_LAST_EXIT` as fallbacks: the current plugin passes that context as arguments, and the variables are kept only for an already-installed older plugin. History falls back to `~/.zsh_history` when `HISTFILE` is unset.
+The CLI also reads `SHELLMATE_SESSION_ID` (the conversation ID when `--thread-id` is absent, set per window by the zsh plugin), plus `SHELLMATE_HISTORY_TEXT`, `SHELLMATE_LAST_COMMAND` and `SHELLMATE_LAST_EXIT` as fallbacks: the current plugin passes history as an argument, and the other variables are kept only for an already-installed older plugin. History falls back to `~/.zsh_history` when `HISTFILE` is unset.
 
 ### Runtime files
 

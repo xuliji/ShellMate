@@ -121,7 +121,7 @@ def main() -> None:
     explain_parser.add_argument("--thread-id", help="LangGraph 会话 ID，通常由 zsh 传入")
     last_parser = sub.add_parser(
         "explain-last",
-        help="解释上一条命令及其退出码（空缓冲按 Ctrl-G 触发）",
+        help="解释指定的上一条命令及其退出码（需 --last-command/--last-exit，供脚本手动调用）",
     )
     last_parser.add_argument("--history", default="", help="近期命令历史，由 zsh 插件传入")
     last_parser.add_argument("--thread-id", help="LangGraph 会话 ID，通常由 zsh 传入")

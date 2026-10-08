@@ -10,10 +10,10 @@ Shellmate 是一个面向 zsh 的命令行 AI 助手。在命令行输入问题�
 
 ## 功能
 
-- **Ctrl-G** 快捷键 — 输入问题按 Ctrl-G 提问；**空缓冲按 Ctrl-G 自动解释上一条命令**
+- **Ctrl-G** 快捷键 — 在命令行输入问题后按 Ctrl-G 提问（空缓冲时只提示先输入问题）
 - 终端内渲染 Markdown（代码高亮、表格、列表）
-- 自动捕获上一条命令及其退出码，失败时结合退出码定位原因
-- 命令失败后在提示符上方给出提示，按 **Ctrl-X** 用管道重跑、让 agent 看完整报错
+- 自动捕获上一条命令及其退出码，失败时在提示符上方提示
+- 命令失败后按 **Ctrl-X** 用管道重跑该命令，让 agent 看**完整报错**再解释
 - 近期命令历史作为上下文
 - OpenAI 兼容协议，支持 OpenAI / DeepSeek / Qwen 等
 - 系统提示词可编辑（`~/.config/shellmate/Agent.md`），默认模板随包下发
@@ -35,18 +35,19 @@ source ~/.zshrc            # 或重开终端
 
 ## 使用
 
-在 zsh 中输入问题，然后按 **Ctrl-G**。**空缓冲按 Ctrl-G**（命令行没有输入内容）会解释上一条命令 —— 但它只拿得到命令本身和退出码：**命令的输出没有被捕获**。原因是 zsh 没有"命令执行结束"的钩子，输出在提示符重绘时就已经消失了。想让 agent 看到真正的报错，用 **Ctrl-X** 或自己接管道。
+在 zsh 中输入问题，然后按 **Ctrl-G**，agent 会结合近期命令历史回答。空缓冲按 Ctrl-G 不会去猜上一条命令的失败原因，只提示你先输入问题 —— 原因是 zsh 没有"命令执行结束"的钩子，命令的输出在提示符重绘时就已经消失，Shellmate 从未捕获过它。想让 agent 看到真正的报错，用 **Ctrl-X** 重跑该命令，或自己接管道。
 
 | 触发方式 | agent 能看到什么 |
 | --- | --- |
 | Ctrl-G（命令行有输入） | 你的问题 + 近期命令历史 |
-| Ctrl-G（空缓冲） | 上一条命令 + 退出码 + 近期历史，**不含该命令的输出** |
+| Ctrl-G（空缓冲） | 什么都不问，只在终端提示"请先输入问题" |
 | Ctrl-X | 重新执行上一条命令，把 stdout+stderr 合并后的输出交给 agent |
 | `cmd 2>&1 \| shellmate-ai explain` | 同上，但要跑哪条命令由你自己决定 |
+| `shellmate-ai explain-last --last-command CMD --last-exit N` | 只有命令和退出码，**没有输出**，适合脚本；模型被明确告知不要编造报错 |
 
 命令失败时（非零退出码），提示符上方会出现提示：按 **Ctrl-X** 会把上一条命令用 `2>&1 | shellmate-ai explain` 重跑，把合并后的输出交给 agent 解释（重跑可能有副作用，所以由你手动触发）。
 
-> **注**：Ctrl-X 任何时候都可用，不限于失败之后；输出过长时只保留末尾 2 万字符。`^X` 同时是 zsh 默认键位的前缀（如 `^X^U` 撤销、`^Xr` 历史搜索），所以 ZLE 会先等待 `KEYTIMEOUT`（默认 0.4 秒）再触发重跑——那些 `^X` 开头的组合键不受影响，觉得迟滞可以自行调小 `KEYTIMEOUT`。
+> **注**：Ctrl-X 任何时候都可用，不限于失败之后；输出过长时只保留末尾 2 万字符。`^X` 同时是 zsh 默认键位的前缀（如 `^X^U` 撤销、`^Xr` 历史搜索），所以 ZLE 会先等待 `KEYTIMEOUT`（默认 0.4 秒）再触发重跑——那些 `^X` 开头的组合键不受影响，觉得迟滞可以自行调小 `KEYTIMEOUT`。另外，绑定 Ctrl-G 会覆盖 zsh 默认的 `send-break`（取消当前命令行）；想找回默认行为，可以执行 `bindkey '^G' send-break`，或给插件换个键位。
 
 ```sh
 shellmate-ai ask "刚才的命令为什么失败？"                    # 直接提问
@@ -58,7 +59,7 @@ shellmate-ai ask --thread-id my-task "换个新会话"            # 指定会话
 git push origin main 2>&1 | shellmate-ai explain
 tail -200 app.log | shellmate-ai explain "为什么一直报 timeout？"
 
-shellmate-ai explain-last                             # 解释上一条命令（Ctrl-G 空缓冲触发）
+shellmate-ai explain-last --last-command "make build" --last-exit 2  # 只用命令+退出码解释（无输出）
 shellmate-ai config-path                              # 查看配置路径
 shellmate-ai history-lines                            # 查看历史条数
 ```
@@ -90,7 +91,7 @@ shellmate-ai history-lines                            # 查看历史条数
 | `SHELLMATE_THREAD_ID` | `thread_id`（会话记忆 ID，默认 `shellmate-cli-default`） |
 | `SHELLMATE_SEARCH_ENDPOINT` | `search.endpoint` |
 
-CLI 另外会读取 `SHELLMATE_SESSION_ID`（未指定 `--thread-id` 时的会话 ID，由 zsh 插件按窗口设置），以及 `SHELLMATE_HISTORY_TEXT`、`SHELLMATE_LAST_COMMAND`、`SHELLMATE_LAST_EXIT` 作为兜底值 —— 新版插件改用命令行参数传这些内容，环境变量只为兼容已安装的旧插件保留。未设置 `HISTFILE` 时，历史文件按 `~/.zsh_history` 读取。
+CLI 另外会读取 `SHELLMATE_SESSION_ID`（未指定 `--thread-id` 时的会话 ID，由 zsh 插件按窗口设置），以及 `SHELLMATE_HISTORY_TEXT`、`SHELLMATE_LAST_COMMAND`、`SHELLMATE_LAST_EXIT` 作为兜底值 —— 新版插件用 `--history` 参数传历史，另外几个变量只为兼容已安装的旧插件保留。未设置 `HISTFILE` 时，历史文件按 `~/.zsh_history` 读取。
 
 ### 运行时文件
 
