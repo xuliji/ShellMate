@@ -122,6 +122,7 @@ class SearchSettings(StrictSettings):
 
 class PrivacySettings(StrictSettings):
     redact_secrets: bool = True
+    redact_high_entropy: bool = True
     custom_patterns: tuple[str, ...] = ()
 
 

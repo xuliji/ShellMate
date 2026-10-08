@@ -14,10 +14,25 @@ _EXTENDED_HISTORY_PREFIX = re.compile(r"^: \d+:\d+;")
 @dataclass(frozen=True)
 class ShellContext:
     history: str = ""
+    output: str = ""
+    last_command: str = ""
+    last_exit_code: int | None = None
 
     def as_text(self) -> str:
-        """将命令历史整理成模型易于阅读的上下文。"""
-        return f"Recent commands:\n{self.history or '(none)'}"
+        """将历史、管道输出和上一条命令整理成模型易于阅读的上下文。"""
+        parts: list[str] = []
+        if self.last_command:
+            if self.last_exit_code == 0:
+                status = "succeeded"
+            elif self.last_exit_code is None:
+                status = "unknown exit code"
+            else:
+                status = f"failed (exit code {self.last_exit_code})"
+            parts.append(f"Last command {status}:\n{self.last_command}")
+        if self.output:
+            parts.append(f"Command output:\n{self.output}")
+        parts.append(f"Recent commands:\n{self.history or '(none)'}")
+        return "\n\n".join(parts)
 
 
 def read_context(history: str) -> ShellContext:

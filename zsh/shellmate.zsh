@@ -1,8 +1,9 @@
 # 在 ~/.zshrc 中加载本文件，将 Ctrl-G 绑定为 Shellmate 交互组件。
-# 每个 shell 使用独立 ID；重复加载插件时保留当前会话的 ID。
+# 用当前 shell 进程 PID（$$）作为会话 ID：每个窗口/标签页唯一，关闭后随之消失。
+# 重复加载插件时保留同一会话 ID，避免会话记忆被重置。
 if [[ "${SHELLMATE_SESSION_OWNER_PID:-}" != "$$" ]]; then
   typeset -g SHELLMATE_SESSION_OWNER_PID="$$"
-  typeset -g SHELLMATE_SESSION_ID="zsh-$$-$RANDOM-$RANDOM"
+  typeset -g SHELLMATE_SESSION_ID="zsh-$$"
   export SHELLMATE_SESSION_ID
 fi
 
