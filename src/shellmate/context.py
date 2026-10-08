@@ -43,7 +43,7 @@ def read_context(history: str) -> ShellContext:
 def read_zsh_history(limit: int) -> str:
     """从 zsh 历史文件读取最近命令，作为直接运行 CLI 时的兜底上下文。
 
-    zsh 插件会通过 ``--history`` 传入当前会话历史；直接运行 ``shellmate ask``
+    zsh 插件会通过 ``--history`` 传入当前会话历史；直接运行 ``shellmate-ai ask``
     时没有该数据，这里退而读取历史文件。仅包含已落盘的命令，可能滞后于
     当前交互会话（尚未写入 HISTFILE 的命令不会出现）。
     """

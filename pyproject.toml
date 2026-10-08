@@ -13,7 +13,7 @@ dependencies = [
 ]
 
 [project.scripts]
-shellmate = "shellmate.cli:main"
+shellmate-ai = "shellmate.cli:main"
 
 [build-system]
 requires = ["setuptools>=68"]

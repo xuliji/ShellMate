@@ -81,7 +81,7 @@ def ensure_zsh_plugin() -> bool:
     new = existing
     if new and not new.endswith("\n"):
         new += "\n"
-    new += f"\n# Shellmate: 加载 zsh 插件（由 shellmate init 自动添加）\n{ZSHRC_SOURCE_LINE}\n"
+    new += f"\n# Shellmate: 加载 zsh 插件（由 shellmate-ai init 自动添加）\n{ZSHRC_SOURCE_LINE}\n"
     ZSHRC_PATH.write_text(new, encoding="utf-8")
     return True
 

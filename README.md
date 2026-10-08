@@ -26,33 +26,33 @@ Shellmate 是一个面向 zsh 的命令行 AI 助手。在命令行输入问题�
 
 ```sh
 pip install shellmate-ai   # 或从源码：pip install -e .
-shellmate init             # 创建配置 + zsh 插件 + .zshrc 加载行
+shellmate-ai init          # 创建配置 + zsh 插件 + .zshrc 加载行
 source ~/.zshrc            # 或重开终端
 ```
 
-> **注**：PyPI 上的包名是 `shellmate-ai`，安装后的命令行工具名仍为 `shellmate`。
+> **注**：安装后命令行工具名为 `shellmate-ai`（与 PyPI 包名一致）。
 
 ## 使用
 
 在 zsh 中输入问题，然后按 **Ctrl-G**。**空缓冲按 Ctrl-G**（命令行没有输入内容）会自动结合上一条命令及其退出码，解释它为什么失败。
 
 ```sh
-shellmate ask "刚才的命令为什么失败？"              # 直接提问
-shellmate ask                                      # 交互式提问
-shellmate ask --history $'ls -la\ngit status' "..." # 手动传历史
+shellmate-ai ask "刚才的命令为什么失败？"              # 直接提问
+shellmate-ai ask                                      # 交互式提问
+shellmate-ai ask --history $'ls -la\ngit status' "..." # 手动传历史
 
 # 把命令输出喂给 Shellmate 解释（管道模式）
-git push origin main 2>&1 | shellmate explain
-tail -200 app.log | shellmate explain "为什么一直报 timeout？"
+git push origin main 2>&1 | shellmate-ai explain
+tail -200 app.log | shellmate-ai explain "为什么一直报 timeout？"
 
-shellmate explain-last                             # 解释上一条命令（Ctrl-G 空缓冲触发）
-shellmate config-path                              # 查看配置路径
-shellmate history-lines                            # 查看历史条数
+shellmate-ai explain-last                             # 解释上一条命令（Ctrl-G 空缓冲触发）
+shellmate-ai config-path                              # 查看配置路径
+shellmate-ai history-lines                            # 查看历史条数
 ```
 
 ## 配置
 
-`shellmate init` 会创建 `~/.config/shellmate/config.json` 和 `Agent.md`。在 config.json 中填入 API Key，或用环境变量设置。
+`shellmate-ai init` 会创建 `~/.config/shellmate/config.json` 和 `Agent.md`。在 config.json 中填入 API Key，或用环境变量设置。
 
 ```json
 {

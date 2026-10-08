@@ -26,33 +26,33 @@ Requires Python 3.11+.
 
 ```sh
 pip install shellmate-ai   # or: pip install -e . from a checkout
-shellmate init             # creates config + zsh plugin + .zshrc entry
+shellmate-ai init          # creates config + zsh plugin + .zshrc entry
 source ~/.zshrc            # or open a new terminal
 ```
 
-> **Note**: the package on PyPI is named `shellmate-ai`; the installed command is still `shellmate`.
+> **Note**: the installed command is `shellmate-ai` (matching the PyPI package name).
 
 ## Usage
 
 In zsh, type a question and press **Ctrl-G**. **Press Ctrl-G on an empty prompt** to explain the last command (with its exit code) and why it failed.
 
 ```sh
-shellmate ask "Why did my last command fail?"          # ask directly
-shellmate ask                                          # interactive prompt
-shellmate ask --history $'ls -la\ngit status' "..."    # pass history manually
+shellmate-ai ask "Why did my last command fail?"          # ask directly
+shellmate-ai ask                                          # interactive prompt
+shellmate-ai ask --history $'ls -la\ngit status' "..."    # pass history manually
 
 # Feed command output to Shellmate for explanation (pipe mode)
-git push origin main 2>&1 | shellmate explain
-tail -200 app.log | shellmate explain "why does it keep timing out?"
+git push origin main 2>&1 | shellmate-ai explain
+tail -200 app.log | shellmate-ai explain "why does it keep timing out?"
 
-shellmate explain-last                                 # explain the last command (Ctrl-G on empty prompt)
-shellmate config-path                                  # print config path
-shellmate history-lines                                # print history size
+shellmate-ai explain-last                                 # explain the last command (Ctrl-G on empty prompt)
+shellmate-ai config-path                                  # print config path
+shellmate-ai history-lines                                # print history size
 ```
 
 ## Configuration
 
-`shellmate init` creates `~/.config/shellmate/config.json` and `Agent.md`. Set your API key there or via environment variables.
+`shellmate-ai init` creates `~/.config/shellmate/config.json` and `Agent.md`. Set your API key there or via environment variables.
 
 ```json
 {

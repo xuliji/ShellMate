@@ -56,7 +56,7 @@ def _ask(config, question: str, context: ShellContext, args) -> None:
     try:
         _stream_answer(LangGraphAgent(config), config, question, context, args)
     except (AgentError, ValueError, OSError) as exc:
-        print(f"shellmate: {exc}", file=sys.stderr)
+        print(f"shellmate-ai: {exc}", file=sys.stderr)
         raise SystemExit(1) from exc
 
 
@@ -103,7 +103,7 @@ def _stream_answer(agent: LangGraphAgent, config, question: str, context: ShellC
 
 def main() -> None:
     """处理初始化、提问、解释上一条命令与配置查看等子命令。"""
-    parser = argparse.ArgumentParser(prog="shellmate", description="Ask an AI assistant about your shell session")
+    parser = argparse.ArgumentParser(prog="shellmate-ai", description="Ask an AI assistant about your shell session")
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     sub = parser.add_subparsers(dest="command")
     ask_parser = sub.add_parser("ask", help="Ask a question using recent shell context")
@@ -112,7 +112,7 @@ def main() -> None:
     ask_parser.add_argument("--thread-id", help="LangGraph conversation ID; normally supplied by zsh")
     explain_parser = sub.add_parser(
         "explain",
-        help="Explain command output read from stdin (e.g. cmd 2>&1 | shellmate explain)",
+        help="Explain command output read from stdin (e.g. cmd 2>&1 | shellmate-ai explain)",
     )
     explain_parser.add_argument("question", nargs="*", help="Optional question; defaults to summarizing the output")
     explain_parser.add_argument("--history", default="", help="Recent shell history supplied by the zsh plugin")
@@ -130,7 +130,7 @@ def main() -> None:
     try:
         config = load_config()
     except (ValueError, OSError) as exc:
-        print(f"shellmate: {exc}", file=sys.stderr)
+        print(f"shellmate-ai: {exc}", file=sys.stderr)
         raise SystemExit(2) from exc
 
     if args.command == "init":
@@ -155,7 +155,7 @@ def main() -> None:
     if args.command == "explain-last":
         last_command = os.environ.get("SHELLMATE_LAST_COMMAND", "").strip()
         if not last_command:
-            print("shellmate: 没有可解释的上一条命令。", file=sys.stderr)
+            print("shellmate-ai: 没有可解释的上一条命令。", file=sys.stderr)
             raise SystemExit(1)
         raw_exit = os.environ.get("SHELLMATE_LAST_EXIT", "").strip()
         try:
@@ -174,13 +174,13 @@ def main() -> None:
     if args.command == "explain":
         if sys.stdin.isatty():
             print(
-                "shellmate: explain 需要管道输入，例如：command 2>&1 | shellmate explain",
+                "shellmate-ai: explain 需要管道输入，例如：command 2>&1 | shellmate-ai explain",
                 file=sys.stderr,
             )
             raise SystemExit(1)
         output = sys.stdin.read()
         if not output.strip():
-            print("shellmate: 标准输入为空。", file=sys.stderr)
+            print("shellmate-ai: 标准输入为空。", file=sys.stderr)
             raise SystemExit(1)
         output = output[-_MAX_OUTPUT_CHARS:]
         question = " ".join(args.question).strip() or "解释这段命令输出：发生了什么、是否报错、以及该如何处理。"
@@ -199,10 +199,10 @@ def main() -> None:
         try:
             question = input("Ask Shellmate: ").strip()
         except (EOFError, KeyboardInterrupt):
-            print("\nshellmate: 未输入问题。", file=sys.stderr)
+            print("\nshellmate-ai: 未输入问题。", file=sys.stderr)
             raise SystemExit(1)
     if not question:
-        print("shellmate: 未输入问题。", file=sys.stderr)
+        print("shellmate-ai: 未输入问题。", file=sys.stderr)
         raise SystemExit(1)
     context = read_context(_history_text(config, args))
     _ask(config, question, context, args)

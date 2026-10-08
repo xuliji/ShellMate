@@ -15,7 +15,7 @@ shellmate-preexec() {
   local cmd="$1"
   # 跳过 Shellmate 自身的调用，保留上一条真实命令供解释。
   case "$cmd" in
-    shellmate\ *|command\ shellmate\ *) return ;;
+    shellmate-ai\ *|command\ shellmate-ai\ *) return ;;
   esac
   SHELLMATE_LAST_COMMAND="$cmd"
 }
@@ -33,7 +33,7 @@ shellmate-widget() {
   local history_lines
   local question
   # 从配置读取历史行数；CLI 不可用时默认取最近 20 条。
-  history_lines="$(command shellmate history-lines 2>/dev/null || print 20)"
+  history_lines="$(command shellmate-ai history-lines 2>/dev/null || print 20)"
   # 用 zsh 内置 fc 命令获取最近历史，通过环境变量传给 CLI。
   # 不直接写进命令行：历史可能含换行，展开到缓冲区会破坏命令结构。
   export SHELLMATE_HISTORY_TEXT="$(fc -ln -${history_lines} 2>/dev/null)"
@@ -44,11 +44,11 @@ shellmate-widget() {
   CURSOR=0
   zle -I
   if [[ -n "$question" ]]; then
-    command shellmate ask "$question"
+    command shellmate-ai ask "$question"
   elif [[ -n "$SHELLMATE_LAST_COMMAND" ]]; then
     # 空缓冲：自动解释上一条命令（结合退出码定位失败原因）。
     export SHELLMATE_LAST_COMMAND SHELLMATE_LAST_EXIT
-    command shellmate explain-last
+    command shellmate-ai explain-last
   fi
   zle reset-prompt 2>/dev/null
 }
