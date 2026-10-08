@@ -1,1 +1,1 @@
-include zsh/shellmate.zsh
+recursive-include src *.zsh

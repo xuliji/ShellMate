@@ -7,6 +7,28 @@ if [[ "${SHELLMATE_SESSION_OWNER_PID:-}" != "$$" ]]; then
   export SHELLMATE_SESSION_ID
 fi
 
+# 记录上一条命令及其退出码，供 Ctrl-G 空缓冲时自动解释失败原因。
+typeset -g SHELLMATE_LAST_COMMAND=""
+typeset -g SHELLMATE_LAST_EXIT=0
+
+shellmate-preexec() {
+  local cmd="$1"
+  # 跳过 Shellmate 自身的调用，保留上一条真实命令供解释。
+  case "$cmd" in
+    shellmate\ *|command\ shellmate\ *) return ;;
+  esac
+  SHELLMATE_LAST_COMMAND="$cmd"
+}
+
+shellmate-precmd() {
+  # precmd 在每条命令结束后、显示提示符前执行，$? 即上一条命令的退出码。
+  SHELLMATE_LAST_EXIT=$?
+}
+
+autoload -Uz add-zsh-hook
+add-zsh-hook preexec shellmate-preexec
+add-zsh-hook precmd shellmate-precmd
+
 shellmate-widget() {
   local history_lines
   local question
@@ -23,6 +45,10 @@ shellmate-widget() {
   zle -I
   if [[ -n "$question" ]]; then
     command shellmate ask "$question"
+  elif [[ -n "$SHELLMATE_LAST_COMMAND" ]]; then
+    # 空缓冲：自动解释上一条命令（结合退出码定位失败原因）。
+    export SHELLMATE_LAST_COMMAND SHELLMATE_LAST_EXIT
+    command shellmate explain-last
   fi
   zle reset-prompt 2>/dev/null
 }

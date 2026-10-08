@@ -6,11 +6,12 @@ Shellmate 是一个面向 zsh 的命令行 AI 助手。在命令行输入问题�
 
 ## 功能
 
-- **Ctrl-G** 快捷键 — 先输入问题，再按 Ctrl-G 提交
+- **Ctrl-G** 快捷键 — 输入问题按 Ctrl-G 提问；**空缓冲按 Ctrl-G 自动解释上一条命令**
+- 自动捕获上一条命令及其退出码，失败时结合退出码定位原因
 - 近期命令历史作为上下文
 - OpenAI 兼容协议，支持 OpenAI / DeepSeek / Qwen 等
 - 内置 DuckDuckGo 网页搜索，无需搜索 API Key
-- 模型与搜索请求前自动脱敏
+- 模型与搜索请求前自动脱敏（含高熵密钥检测）
 - 本地 SQLite 保存 checkpoint，无需数据库服务
 
 ## 安装
@@ -25,12 +26,18 @@ source ~/.zshrc         # 或重开终端
 
 ## 使用
 
-在 zsh 中输入问题，然后按 **Ctrl-G**。
+在 zsh 中输入问题，然后按 **Ctrl-G**。**空缓冲按 Ctrl-G**（命令行没有输入内容）会自动结合上一条命令及其退出码，解释它为什么失败。
 
 ```sh
 shellmate ask "刚才的命令为什么失败？"              # 直接提问
 shellmate ask                                      # 交互式提问
 shellmate ask --history $'ls -la\ngit status' "..." # 手动传历史
+
+# 把命令输出喂给 Shellmate 解释（管道模式）
+git push origin main 2>&1 | shellmate explain
+tail -200 app.log | shellmate explain "为什么一直报 timeout？"
+
+shellmate explain-last                             # 解释上一条命令（Ctrl-G 空缓冲触发）
 shellmate config-path                              # 查看配置路径
 shellmate history-lines                            # 查看历史条数
 ```
@@ -44,7 +51,7 @@ shellmate history-lines                            # 查看历史条数
   "llm": { "base_url": "https://api.openai.com/v1", "model": "gpt-4o-mini", "api_key": "" },
   "shell": { "history_lines": 20 },
   "search": { "endpoint": "https://html.duckduckgo.com/html/" },
-  "privacy": { "redact_secrets": true, "custom_patterns": [] }
+  "privacy": { "redact_secrets": true, "redact_high_entropy": true, "custom_patterns": [] }
 }
 ```
 
@@ -83,8 +90,8 @@ src/shellmate/
 ├── config.py          # Pydantic 配置
 ├── context.py         # 历史格式化
 ├── privacy.py         # 脱敏中间件
-├── zsh_plugin.py      # 内置 zsh 插件
+├── zsh_plugin.py      # 内置 zsh 插件（从 shellmate.zsh 数据文件读取）
+├── shellmate.zsh      # zsh 插件（Ctrl-G / preexec / precmd）
 └── tools/
     └── web_search.py  # DuckDuckGo HTML 搜索
-zsh/shellmate.zsh      # zsh 快捷键（Ctrl-G）
 ```

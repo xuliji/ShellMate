@@ -6,11 +6,12 @@ Shellmate is an AI assistant for your zsh command line. Type a question and pres
 
 ## Features
 
-- **Ctrl-G** widget — type a question, press Ctrl-G to ask
+- **Ctrl-G** widget — type a question and press Ctrl-G; **press Ctrl-G on an empty prompt to explain the last command**
+- Automatically captures the last command and its exit code to diagnose failures
 - Recent command history as context
 - OpenAI-compatible protocol — OpenAI / DeepSeek / Qwen / other endpoints
 - Built-in DuckDuckGo web search, no API key required
-- Secret redaction before model and search requests
+- Secret redaction before model and search requests (including high-entropy key detection)
 - Local SQLite checkpoints, no database service
 
 ## Install
@@ -25,12 +26,18 @@ source ~/.zshrc         # or open a new terminal
 
 ## Usage
 
-In zsh, type a question and press **Ctrl-G**.
+In zsh, type a question and press **Ctrl-G**. **Press Ctrl-G on an empty prompt** to explain the last command (with its exit code) and why it failed.
 
 ```sh
 shellmate ask "Why did my last command fail?"          # ask directly
 shellmate ask                                          # interactive prompt
 shellmate ask --history $'ls -la\ngit status' "..."    # pass history manually
+
+# Feed command output to Shellmate for explanation (pipe mode)
+git push origin main 2>&1 | shellmate explain
+tail -200 app.log | shellmate explain "why does it keep timing out?"
+
+shellmate explain-last                                 # explain the last command (Ctrl-G on empty prompt)
 shellmate config-path                                  # print config path
 shellmate history-lines                                # print history size
 ```
@@ -44,7 +51,7 @@ shellmate history-lines                                # print history size
   "llm": { "base_url": "https://api.openai.com/v1", "model": "gpt-4o-mini", "api_key": "" },
   "shell": { "history_lines": 20 },
   "search": { "endpoint": "https://html.duckduckgo.com/html/" },
-  "privacy": { "redact_secrets": true, "custom_patterns": [] }
+  "privacy": { "redact_secrets": true, "redact_high_entropy": true, "custom_patterns": [] }
 }
 ```
 
@@ -83,8 +90,8 @@ src/shellmate/
 ├── config.py          # Pydantic configuration
 ├── context.py         # history formatting
 ├── privacy.py         # secret redaction
-├── zsh_plugin.py      # bundled zsh plugin
+├── zsh_plugin.py      # bundled zsh plugin (loads shellmate.zsh data file)
+├── shellmate.zsh      # zsh plugin (Ctrl-G / preexec / precmd)
 └── tools/
     └── web_search.py  # DuckDuckGo HTML search
-zsh/shellmate.zsh      # zsh widget (Ctrl-G)
 ```
